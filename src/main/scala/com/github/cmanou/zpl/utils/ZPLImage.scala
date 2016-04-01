@@ -1,44 +1,34 @@
 package com.github.cmanou.zpl.utils
 
 import com.sksamuel.scrimage.filter.DitherFilter
-import com.sksamuel.scrimage.{Color, Image, PixelTools}
+import com.sksamuel.scrimage.{Filter, Color, Image, PixelTools}
 
 import scala.annotation.tailrec
 
+trait ZplPrintable {
+  def zpl: String
+}
 
-case class ZPLImage(image: Image, dpmm: Int = 8) {
-  def toZPL(preferredWidth: Int, compressed: Boolean = true) =  {
-    val preferredHeight = (image.height.toFloat / image.width * preferredWidth).toInt
+case class ZPLImage(image: Image, targetWidth: Int, dpmm: Int = 8, compressed: Boolean = true, ditherAlgorithm: Filter = DitherFilter) extends ZplPrintable {
+  def zpl =  {
+    val targetHeight = (image.height.toFloat / image.width * targetWidth).toInt
 
-    val bwResizedImage = image.scaleTo(preferredWidth * dpmm, preferredHeight * dpmm)
-                              .removeTransparency(Color.White)
-                              .filter(DitherFilter)
+    val bwResizedImage = image.removeTransparency(Color.White)
+                              .scaleTo(targetWidth * dpmm / 8, targetHeight * dpmm)
+                              .filter(ditherAlgorithm)
 
-
+    val totalBytes = (Math.ceil(targetWidth * dpmm /8.0)* targetHeight * dpmm).toInt
+    val bytesPerRow = Math.ceil(targetWidth * dpmm /8.0).toInt
     val data = getImageHex(bwResizedImage, compressed)
-
-    val totalBytes = (Math.ceil(preferredWidth * dpmm /8.0)* preferredHeight * dpmm).toInt
-    val bytesPerRow = Math.ceil(preferredWidth * dpmm /8.0).toInt
-
-
-    println(preferredWidth)
-    println(preferredHeight)
-    println(totalBytes)
-    println(bytesPerRow)
-    println(bwResizedImage.width)
-    println(bwResizedImage.height)
-    println(data.length)
 
     "^GFA,%d,%d,%d,%s".format(totalBytes,totalBytes,bytesPerRow,data)
   }
 
   def getImageHex(image: Image, compressed: Boolean) = {
-    val newImage = image.scaleTo(image.width/8, image.height)
+    val arr = Array.ofDim[Byte](image.height,image.width)
 
-    val arr = Array.ofDim[Byte](newImage.height,newImage.width)
-
-    for (y <- 0 until newImage.height; x <- 0 until newImage.width) {
-      val gray = PixelTools.gray(newImage.pixel(x,y).toInt)
+    for (y <- 0 until image.height; x <- 0 until image.width) {
+      val gray = PixelTools.gray(image.pixel(x,y).toInt)
       arr(y)(x) = (255 - gray).toByte
     }
 
@@ -49,6 +39,7 @@ case class ZPLImage(image: Image, dpmm: Int = 8) {
       case true => ZPLImage.compressDuplicateLines(lines.map(ZPLImage.compressDuplicateChars)).mkString
     }
   }
+
 
 }
 
@@ -104,8 +95,8 @@ object ZPLImage {
     counted.flatMap(x => x match {
       case ((i,'0'), index) if index == (counted.length - 1) => ',' :: Nil
       case ((i,'1'), index) if index == (counted.length - 1) => '!' :: Nil
-      case ((i,x), index) if i < 3 => List.fill(i)(x)
-      case ((i,x), index) => getMultiplier(i) ::: ( x :: Nil)
+      case ((i,v), index) if i < 3 => List.fill(i)(v)
+      case ((i,v), index) => getMultiplier(i) ::: ( v :: Nil)
     }).mkString
   }
 
