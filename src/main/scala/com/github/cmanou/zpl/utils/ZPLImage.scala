@@ -1,13 +1,9 @@
 package com.github.cmanou.zpl.utils
 
-import java.awt.image.BufferedImage
-import java.io.{File, ByteArrayOutputStream}
-import java.util
-import javax.imageio.ImageIO
+import com.sksamuel.scrimage.filter.DitherFilter
+import com.sksamuel.scrimage.{Color, Image, PixelTools}
 
-import com.sksamuel.scrimage.Image
-import com.sksamuel.scrimage.filter.{DitherFilter, ThresholdFilter}
-import com.sksamuel.scrimage.nio.JpegWriter
+import scala.annotation.tailrec
 
 
 case class ZPLImage(image: Image, dpmm: Int = 8) {
@@ -15,9 +11,9 @@ case class ZPLImage(image: Image, dpmm: Int = 8) {
     val preferredHeight = (image.height.toFloat / image.width * preferredWidth).toInt
 
     val bwResizedImage = image.scaleTo(preferredWidth * dpmm, preferredHeight * dpmm)
+                              .removeTransparency(Color.White)
                               .filter(DitherFilter)
 
-    bwResizedImage.output(new File("/Users/cmanou/Desktop/spaghetti.jpg"))(JpegWriter.NoCompression)
 
     val data = getImageHex(bwResizedImage, compressed)
 
@@ -37,24 +33,26 @@ case class ZPLImage(image: Image, dpmm: Int = 8) {
   }
 
   def getImageHex(image: Image, compressed: Boolean) = {
-    val arr = Array.ofDim[Byte](image.height,image.width/8)
+    val newImage = image.scaleTo(image.width/8, image.height)
 
-    for (y <- 0 until image.height; x <- 0 until image.width/8) {
-      val l = image.pixel(x*8, y).red * 299/1000 + image.pixel(x*8, y).green * 587/1000 + image.pixel(x*8, y).blue * 114/1000
-      arr(y)(x) = (255 - l).toByte
+    val arr = Array.ofDim[Byte](newImage.height,newImage.width)
+
+    for (y <- 0 until newImage.height; x <- 0 until newImage.width) {
+      val gray = PixelTools.gray(newImage.pixel(x,y).toInt)
+      arr(y)(x) = (255 - gray).toByte
     }
 
     val lines: List[String] = arr.map(_.map("%02X".format(_)).mkString).toList
 
     compressed match {
       case false => lines.mkString
-      case true => ZPLImage.compressDuplicateLines(lines.map(ZPLImage.compressDuplicateChars(_))).mkString
+      case true => ZPLImage.compressDuplicateLines(lines.map(ZPLImage.compressDuplicateChars)).mkString
     }
   }
 
-
 }
 
+@tailrec
 object ZPLImage {
   def getMultiplier(n: Int): List[Char] = {
     n match {

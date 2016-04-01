@@ -10,6 +10,7 @@ class ZPLImageTest extends FunSuite with BeforeAndAfter with OneInstancePerTest 
     val zplImage = ZPLImage(expected,8)
 
     println(zplImage.toZPL(50,true))
+//    println(zplImage.toZPL(50,false))
 
     assert( true)
   }
