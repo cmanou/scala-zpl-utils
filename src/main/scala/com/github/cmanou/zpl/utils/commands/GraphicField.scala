@@ -1,15 +1,10 @@
-package com.github.cmanou.zpl.utils
+package com.github.cmanou.zpl.utils.commands
 
 import com.sksamuel.scrimage.filter.DitherFilter
-import com.sksamuel.scrimage.{Filter, Color, Image, PixelTools}
+import com.sksamuel.scrimage.{Color, Filter, Image, PixelTools}
 
-import scala.annotation.tailrec
-
-trait ZplPrintable {
-  def zpl: String
-}
-
-case class ZPLImage(image: Image, targetWidth: Int, dpmm: Int = 8, compressed: Boolean = true, ditherAlgorithm: Filter = DitherFilter) extends ZplPrintable {
+//Note: 8 = bits/byte
+case class GraphicField(image: Image, targetWidth: Int, dpmm: Int = 8, compressed: Boolean = true, ditherAlgorithm: Filter = DitherFilter) extends PrintableCommand {
   def zpl =  {
     val targetHeight = (image.height.toFloat / image.width * targetWidth).toInt
 
@@ -17,8 +12,8 @@ case class ZPLImage(image: Image, targetWidth: Int, dpmm: Int = 8, compressed: B
                               .scaleTo(targetWidth * dpmm / 8, targetHeight * dpmm)
                               .filter(ditherAlgorithm)
 
-    val totalBytes = (Math.ceil(targetWidth * dpmm /8.0)* targetHeight * dpmm).toInt
-    val bytesPerRow = Math.ceil(targetWidth * dpmm /8.0).toInt
+    val totalBytes = (Math.ceil(targetWidth * dpmm / 8.0) * targetHeight * dpmm).toInt
+    val bytesPerRow = Math.ceil(targetWidth * dpmm / 8.0).toInt
     val data = getImageHex(bwResizedImage, compressed)
 
     "^GFA,%d,%d,%d,%s".format(totalBytes,totalBytes,bytesPerRow,data)
@@ -36,15 +31,15 @@ case class ZPLImage(image: Image, targetWidth: Int, dpmm: Int = 8, compressed: B
 
     compressed match {
       case false => lines.mkString
-      case true => ZPLImage.compressDuplicateLines(lines.map(ZPLImage.compressDuplicateChars)).mkString
+      case true => GraphicField.compressDuplicateLines(lines.map(GraphicField.compressDuplicateChars)).mkString
     }
   }
 
 
 }
 
-@tailrec
-object ZPLImage {
+object GraphicField {
+
   def getMultiplier(n: Int): List[Char] = {
     n match {
       case i if i >= 400 => 'z' :: getMultiplier(i - 400)
