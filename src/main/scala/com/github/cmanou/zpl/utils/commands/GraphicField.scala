@@ -1,44 +1,68 @@
 package com.github.cmanou.zpl.utils.commands
 
-import com.sksamuel.scrimage.filter.DitherFilter
-import com.sksamuel.scrimage.{Color, Filter, Image, PixelTools}
+import java.io.File
 
-//Note: 8 = bits/byte
-case class GraphicField(image: Image, targetWidth: Int, dpmm: Int = 8, compressed: Boolean = true, ditherAlgorithm: Filter = DitherFilter) extends PrintableCommand {
+import com.sksamuel.scrimage.{Color, Image, PixelTools}
+
+case class GraphicField(image: Image, maxWidth: Int, maxHeight: Int, compressed: Boolean = true) extends PrintableCommand {
+  def width = math.round(image.width * imageRatio).toInt
+  def height = math.round(image.height * imageRatio).toInt
+
+  private def imageRatio = {
+    val ratioX = maxWidth.toDouble / image.width
+    val ratioY = maxHeight.toDouble / image.height
+    math.min(ratioX, ratioY)
+  }
+
   def zpl =  {
-    val targetHeight = (image.height.toFloat / image.width * targetWidth).toInt
+    val resizedImage = image.removeTransparency(Color.White)
+                            .scaleTo(width, height)
 
-    val bwResizedImage = image.removeTransparency(Color.White)
-                              .scaleTo(targetWidth * dpmm / 8, targetHeight * dpmm)
-                              .filter(ditherAlgorithm)
+    val imageBytes = GraphicField.getImageAsByteArray(resizedImage)
+    val hexData = GraphicField.byteArrayToHexArray(imageBytes)
 
-    val totalBytes = (Math.ceil(targetWidth * dpmm / 8.0) * targetHeight * dpmm).toInt
-    val bytesPerRow = Math.ceil(targetWidth * dpmm / 8.0).toInt
-    val data = getImageHex(bwResizedImage, compressed)
-
-    "^GFA,%d,%d,%d,%s".format(totalBytes,totalBytes,bytesPerRow,data)
-  }
-
-  def getImageHex(image: Image, compressed: Boolean) = {
-    val arr = Array.ofDim[Byte](image.height,image.width)
-
-    for (y <- 0 until image.height; x <- 0 until image.width) {
-      val gray = PixelTools.gray(image.pixel(x,y).toInt)
-      arr(y)(x) = (255 - gray).toByte
+    val finalData = compressed match {
+      case false => hexData.mkString
+      case true => GraphicField.compressHexStrings(hexData).mkString
     }
 
-    val lines: List[String] = arr.map(_.map("%02X".format(_)).mkString).toList
+    val bytesPerRow = imageBytes(0).length
+    val totalBytes = bytesPerRow * imageBytes.length
 
-    compressed match {
-      case false => lines.mkString
-      case true => GraphicField.compressDuplicateLines(lines.map(GraphicField.compressDuplicateChars)).mkString
-    }
+    "^GFA,%d,%d,%d,%s".format(totalBytes,totalBytes,bytesPerRow,finalData)
   }
-
-
 }
 
 object GraphicField {
+
+  def byteArrayToHexArray(bytes: Array[Array[Byte]]) = {
+    bytes.map(_.map("%02X".format(_)).mkString).toList
+  }
+
+  def getImageAsByteArray(image: Image) = {
+    val arr = Array.ofDim[Byte](image.height,math.ceil(image.width.toDouble / 8).toInt)
+
+    for (y <- 0 until image.height; x <- 0 until image.width by 8) {
+        var pixelRaw = 0
+        for (i <- 0 until 8) {
+          if ((x + i) < image.width) {
+            val pixel = image.pixel(x + i, y)
+            val grey = PixelTools.gray(pixel.toInt)
+            val shift = grey match {
+              case p if p < 128 => 1
+              case _ => 0
+            }
+            pixelRaw = pixelRaw + (shift * Math.pow(2,7-i).toInt)
+          }
+        }
+        arr(y)(x / 8) = pixelRaw.toByte
+    }
+    arr
+  }
+
+  def compressHexStrings(lines: List[String]) = {
+    compressDuplicateLines(lines.map(compressDuplicateChars))
+  }
 
   def getMultiplier(n: Int): List[Char] = {
     n match {
