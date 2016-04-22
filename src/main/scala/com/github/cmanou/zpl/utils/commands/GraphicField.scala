@@ -1,18 +1,17 @@
 package com.github.cmanou.zpl.utils.commands
 
-import java.io.File
-
 import com.sksamuel.scrimage.{Color, Image, PixelTools}
 
 case class GraphicField(image: Image, maxWidth: Int, maxHeight: Int, compressed: Boolean = true) extends PrintableCommand {
-  def width = math.round(image.width * imageRatio).toInt
-  def height = math.round(image.height * imageRatio).toInt
 
-  private def imageRatio = {
+  private val imageRatio = {
     val ratioX = maxWidth.toDouble / image.width
     val ratioY = maxHeight.toDouble / image.height
     math.min(ratioX, ratioY)
   }
+
+  val width = math.round(image.width * imageRatio).toInt
+  val height = math.round(image.height * imageRatio).toInt
 
   def zpl =  {
     val resizedImage = image.removeTransparency(Color.White)
@@ -43,7 +42,6 @@ object GraphicField {
     val arr = Array.ofDim[Byte](image.height,math.ceil(image.width.toDouble / 8).toInt)
 
     for (y <- 0 until image.height; x <- 0 until image.width by 8) {
-        var pixelRaw = 0
         for (i <- 0 until 8) {
           if ((x + i) < image.width) {
             val pixel = image.pixel(x + i, y)
@@ -52,10 +50,9 @@ object GraphicField {
               case p if p < 128 => 1
               case _ => 0
             }
-            pixelRaw = pixelRaw + (shift * Math.pow(2,7-i).toInt)
+            arr(y)(x / 8) = (arr(y)(x / 8) + (shift * math.pow(2,7-i).toInt)).toByte
           }
         }
-        arr(y)(x / 8) = pixelRaw.toByte
     }
     arr
   }

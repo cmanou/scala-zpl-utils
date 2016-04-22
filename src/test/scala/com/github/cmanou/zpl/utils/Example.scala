@@ -1,12 +1,10 @@
 package com.github.cmanou.zpl.utils
 
-import java.io.File
-
-import com.github.cmanou.zpl.utils.commands._
 import com.github.cmanou.zpl.utils.Implicits._
+import com.github.cmanou.zpl.utils.commands.Commands._
+import com.github.cmanou.zpl.utils.commands._
 import com.github.cmanou.zpl.utils.constants.Orientation
 import com.sksamuel.scrimage.Image
-import com.github.cmanou.zpl.utils.commands.Commands._
 import com.sksamuel.scrimage.filter.DitherFilter
 
 object Example {

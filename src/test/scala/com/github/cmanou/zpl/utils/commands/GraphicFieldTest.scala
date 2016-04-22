@@ -1,6 +1,5 @@
 package com.github.cmanou.zpl.utils.commands
 
-import com.github.cmanou.zpl.utils.commands.barcodes.{Code39, Code11}
 import com.sksamuel.scrimage.Image
 import org.scalatest._
 
